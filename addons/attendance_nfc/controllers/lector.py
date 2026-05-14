@@ -297,4 +297,52 @@ class NfcLectorController(http.Controller):
         except Exception as e:
             _logger.error(f"Error al desvincular tarjeta: {str(e)}")
             return {"status": "error", "message": "No se pudo procesar la desvinculación"}
-    
+
+    @http.route('/nfc/get_fichajes_profesores', type='json', auth='public', methods=['POST'], csrf=False)
+    def get_fichajes_profesores(self, **kwargs):
+        try:
+            fichajes = request.env['nfc.fichaje.profesor'].sudo().search_read(
+                [],
+                ['display_name_sujeto', 'fecha_hora', 'tipo_movimiento', 'uid_usado']
+            )
+
+            _logger.info(f"### [GET_FICHAJES_PROFESORES] Enviando {len(fichajes)} registros al frontend")
+
+            return {
+                "status": "ok",
+                "fichajes": fichajes
+            }
+
+        except Exception as e:
+            _logger.error(f"Error al obtener fichajes de profesores: {str(e)}")
+            return {"status": "error", "message": "No se pudo recuperar el registro de fichajes"}
+
+    @http.route('/nfc/get_fichajes_alumnos', type='json', auth='public', methods=['POST'], csrf=False)
+    def get_fichajes_alumnos(self, **kwargs):
+        try:
+            fichajes = request.env['nfc.fichaje.alumno'].sudo().search_read(
+                [],
+                ['display_name_sujeto', 'fecha_hora', 'tipo_movimiento', 'uid_usado',
+                 'tiene_permiso_salida', 'alumno_id']
+            )
+
+            for f in fichajes:
+                alumno_id = f.get('alumno_id')
+                if alumno_id:
+                    alumno = request.env['nfc.alumno'].sudo().browse(alumno_id[0])
+                    f['permiso_transporte'] = alumno.permiso_transporte
+                    f['permiso_recreo'] = alumno.permiso_recreo
+                else:
+                    f['permiso_transporte'] = False
+                    f['permiso_recreo'] = False
+
+            _logger.info(f"### [GET_FICHAJES_ALUMNOS] Enviando {len(fichajes)} registros al frontend")
+
+            return {
+                "status": "ok",
+                "fichajes": fichajes
+            }
+
+        except Exception as e:
+            _logger.error(f"Error al obtener fichajes de alumnos: {str(e)}")
+            return {"status": "error", "message": "No se pudo recuperar el registro de fichajes"}
